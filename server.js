@@ -101,11 +101,7 @@ app.get('/api/bookings', async (req, res) => {
     let medical = null;
     if (nurseBookings.length > 0) {
       const { data: medData } = await supabase
-        .from('medical_records')
-        .select('*')
-        .eq('user_id', user_id)
-        .maybeSingle();
-
+        .from('medical_records').select('*').eq('user_id', user_id).maybeSingle();
       if (medData) {
         async function makeSignedUrls(jsonStr) {
           if (!jsonStr) return [];
@@ -117,10 +113,8 @@ app.get('/api/bookings', async (req, res) => {
             }));
           } catch { return []; }
         }
-
         medical = {
-          id: medData.id,
-          created_at: medData.created_at,
+          id: medData.id, created_at: medData.created_at,
           xrays:    await makeSignedUrls(medData.xray_urls),
           analyses: await makeSignedUrls(medData.analyses_urls),
           others:   await makeSignedUrls(medData.other_urls),
@@ -163,8 +157,7 @@ app.post('/api/bookings/babysitter', async (req, res) => {
         service: service || 'babysitter',
         payment_method: payment_method || 'cash_on_delivery',
         total_price, notes, status: 'pending',
-        start_time, end_time,
-        booking_type: 'babysitter'
+        start_time, end_time, booking_type: 'babysitter'
       })
       .select().single();
 
@@ -193,8 +186,7 @@ app.post('/api/bookings/nurse', async (req, res) => {
         service: service || 'nurse',
         payment_method: payment_method || 'cash_on_delivery',
         total_price, notes, status: 'pending',
-        start_time, end_time,
-        booking_type: 'nurse'
+        start_time, end_time, booking_type: 'nurse'
       })
       .select().single();
 
@@ -222,7 +214,7 @@ app.patch('/api/bookings/:id/cancel', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ─── MEDICAL RECORDS — للـ nurse بس ───────────────────────
+// ─── MEDICAL RECORDS ───────────────────────────────────────
 
 app.get('/api/medical-records', async (req, res) => {
   try {
@@ -230,8 +222,7 @@ app.get('/api/medical-records', async (req, res) => {
     if (!user_id) return res.status(400).json({ error: 'user_id مطلوب' });
 
     const { data: nurseCheck } = await supabase
-      .from('bookings').select('id')
-      .eq('user_id', user_id).eq('booking_type', 'nurse').limit(1);
+      .from('bookings').select('id').eq('user_id', user_id).eq('booking_type', 'nurse').limit(1);
     if (!nurseCheck || nurseCheck.length === 0)
       return res.status(403).json({ error: 'الملفات الطبية للـ nurse بس' });
 
@@ -269,8 +260,7 @@ app.post('/api/medical-records/upload', upload.single('file'), async (req, res) 
     if (!req.file) return res.status(400).json({ error: 'مفيش ملف' });
 
     const { data: nurseCheck } = await supabase
-      .from('bookings').select('id')
-      .eq('user_id', user_id).eq('booking_type', 'nurse').limit(1);
+      .from('bookings').select('id').eq('user_id', user_id).eq('booking_type', 'nurse').limit(1);
     if (!nurseCheck || nurseCheck.length === 0)
       return res.status(403).json({ error: 'الملفات الطبية للـ nurse بس' });
 
@@ -283,11 +273,8 @@ app.post('/api/medical-records/upload', upload.single('file'), async (req, res) 
     if (uploadErr) return res.status(500).json({ error: 'فشل الرفع: ' + uploadErr.message });
 
     const colMap = {
-      analyses: 'analyses_urls',
-      analysis: 'analyses_urls',
-      xray:     'xray_urls',
-      xrays:    'xray_urls',
-      other:    'other_urls',
+      analyses: 'analyses_urls', analysis: 'analyses_urls',
+      xray: 'xray_urls', xrays: 'xray_urls', other: 'other_urls',
     };
     const col = colMap[category] || 'other_urls';
 
@@ -316,11 +303,8 @@ app.delete('/api/medical-records/file', async (req, res) => {
     await supabase.storage.from('medical-files').remove([file_path]);
 
     const colMap = {
-      analyses: 'analyses_urls',
-      analysis: 'analyses_urls',
-      xray:     'xray_urls',
-      xrays:    'xray_urls',
-      other:    'other_urls',
+      analyses: 'analyses_urls', analysis: 'analyses_urls',
+      xray: 'xray_urls', xrays: 'xray_urls', other: 'other_urls',
     };
     const col = colMap[file_category] || 'other_urls';
 
@@ -343,7 +327,7 @@ app.get('/api/dashboard', async (req, res) => {
     if (!user_id) return res.status(400).json({ error: 'user_id مطلوب' });
 
     const [userRes, bookingsRes, medicalRes] = await Promise.all([
-      supabase.from('users').select('id, role, phone, profile_pic, image_url, created_at').eq('id', user_id).single(),
+      supabase.from('users').select('id, name, role, phone, profile_pic, image_url, created_at').eq('id', user_id).single(),
       supabase.from('bookings').select('id, status, total_price, booking_type').eq('user_id', user_id),
       supabase.from('medical_records').select('id').eq('user_id', user_id)
     ]);
@@ -363,6 +347,40 @@ app.get('/api/dashboard', async (req, res) => {
         total_medical_files: medicalRes.data?.length || 0
       }
     });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ─── PROFILE UPDATE ────────────────────────────────────────
+
+app.patch('/api/profile', async (req, res) => {
+  try {
+    const { user_id, name, phone, contact_info, image_url, profile_pic, pass } = req.body;
+    if (!user_id) return res.status(400).json({ error: 'user_id مطلوب' });
+
+    const updates = {};
+    if (name !== undefined)         updates.name = name;
+    if (phone !== undefined)        updates.phone = phone;
+    if (contact_info !== undefined) updates.contact_info = contact_info;
+    if (image_url !== undefined)    updates.image_url = image_url;
+    if (profile_pic !== undefined)  updates.profile_pic = profile_pic;
+    if (pass !== undefined) {
+      if (pass.length < 6)
+        return res.status(400).json({ error: 'الباسورد لازم يكون 6 حروف على الأقل' });
+      updates.pass = pass;
+    }
+
+    if (Object.keys(updates).length === 0)
+      return res.status(400).json({ error: 'مفيش بيانات للتعديل' });
+
+    const { data, error } = await supabase
+      .from('users')
+      .update(updates)
+      .eq('id', user_id)
+      .select()
+      .single();
+
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ message: 'تم التعديل ✅', user: data });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
