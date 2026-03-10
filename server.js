@@ -327,7 +327,7 @@ app.get('/api/dashboard', async (req, res) => {
     if (!user_id) return res.status(400).json({ error: 'user_id مطلوب' });
 
     const [userRes, bookingsRes, medicalRes] = await Promise.all([
-      supabase.from('users').select('id, name, role, phone, profile_pic, image_url, created_at').eq('id', user_id).single(),
+      supabase.from('users').select('id, name, role, phone, profile_pic, image_url, created_at, address, bio').eq('id', user_id).single(),
       supabase.from('bookings').select('id, status, total_price, booking_type').eq('user_id', user_id),
       supabase.from('medical_records').select('id').eq('user_id', user_id)
     ]);
@@ -354,7 +354,7 @@ app.get('/api/dashboard', async (req, res) => {
 
 app.patch('/api/profile', async (req, res) => {
   try {
-    const { user_id, name, phone, contact_info, image_url, profile_pic, pass } = req.body;
+    const { user_id, name, phone, contact_info, image_url, profile_pic, pass, address, bio } = req.body;
     if (!user_id) return res.status(400).json({ error: 'user_id مطلوب' });
 
     const updates = {};
@@ -363,6 +363,8 @@ app.patch('/api/profile', async (req, res) => {
     if (contact_info !== undefined) updates.contact_info = contact_info;
     if (image_url !== undefined)    updates.image_url = image_url;
     if (profile_pic !== undefined)  updates.profile_pic = profile_pic;
+    if (address !== undefined)      updates.address = address;
+    if (bio !== undefined)          updates.bio = bio;
     if (pass !== undefined) {
       if (pass.length < 6)
         return res.status(400).json({ error: 'الباسورد لازم يكون 6 حروف على الأقل' });
